@@ -1,0 +1,19 @@
+# ========================
+# BACKEND (Python)
+# ========================
+backend/venv/
+backend/__pycache__/
+*.pyc
+.env
+backend/.env
+
+# ========================
+# FRONTEND (Node)
+# ========================
+frontend/node_modules/
+frontend/dist/
+
+# ========================
+# OS
+# ========================
+.DS_Store
