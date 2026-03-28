@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import noPoster from "./assets/no-poster.png"
+import noPoster from "./assets/no-poster.png";
 
 type Movie = {
   id: string;
@@ -15,12 +15,16 @@ type Movie = {
 const API_URL = "http://127.0.0.1:8000/movies";
 
 function App() {
-  // ========================
-  // STATE
-  // ========================
   const [movies, setMovies] = useState<Movie[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "watched" | "not_watched">("all");
+  const [sort, setSort] = useState<string>("title");
+  const [order, setOrder] = useState<string>("asc");
+  const [error, setError] = useState<string | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [omdbSearch, setOmdbSearch] = useState("");
+  const [omdbResults, setOmdbResults] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     title: "",
@@ -34,29 +38,65 @@ function App() {
   // FETCH
   // ========================
   const fetchMovies = async () => {
-    const res = await fetch(API_URL + "/");
+    let url = API_URL + "/";
+    const params = new URLSearchParams();
+
+    if (search) params.append("search", search);
+    if (filter === "watched") params.append("watched", "true");
+    if (filter === "not_watched") params.append("watched", "false");
+    if (sort) params.append("sort", sort);
+    if (order) params.append("order", order);
+
+    if (params.toString()) {
+      url += "?" + params.toString();
+    }
+
+    const res = await fetch(url);
     const data = await res.json();
     setMovies(data);
   };
 
   useEffect(() => {
     fetchMovies();
-  }, []);
+  }, [filter, sort, order, search]);
+
+  const filteredMovies = movies;
 
   // ========================
-  // FILTER + SORT
+  // OMDB SEARCH
   // ========================
-  const filteredMovies = [...movies]
-    .filter((movie) => {
-      if (filter === "watched") return movie.watched;
-      if (filter === "not_watched") return !movie.watched;
-      return true;
-    })
-    .sort((a, b) =>
-      a.title
-        .replace(/^(the|a|an)\s/i, "")
-        .localeCompare(b.title.replace(/^(the|a|an)\s/i, ""))
-    );
+  const searchOMDb = async (query: string) => {
+    if (!query) {
+      setOmdbResults([]);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/search_omdb?query=${query}`);
+      const data = await res.json();
+      setOmdbResults(data.Search || []);
+    } catch {
+      setOmdbResults([]);
+    }
+  };
+
+  const selectOMDbMovie = async (movie: any) => {
+    try {
+      const res = await fetch(`${API_URL}/omdb/${movie.imdbID}`);
+      const data = await res.json();
+
+      setForm({
+        title: data.Title || "",
+        director: data.Director || "",
+        year: data.Year || "",
+        rating: "",
+        watched: false
+      });
+
+      setOmdbResults([]);
+      setOmdbSearch("");
+    } catch {}
+  };
 
   // ========================
   // INPUT
@@ -74,30 +114,41 @@ function App() {
   // ========================
   const addMovie = async (e: React.SyntheticEvent) => {
     e.preventDefault();
+    setError(null);
 
     const method = editingId ? "PUT" : "POST";
     const url = editingId ? `${API_URL}/${editingId}` : API_URL + "/";
 
-    await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        year: Number(form.year),
-        rating: Number(form.rating)
-      })
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          year: Number(form.year),
+          rating: Number(form.rating)
+        })
+      });
 
-    setEditingId(null);
-    setForm({
-      title: "",
-      director: "",
-      year: "",
-      rating: "",
-      watched: false
-    });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.detail || "Something went wrong");
+        return;
+      }
 
-    fetchMovies();
+      setEditingId(null);
+      setForm({
+        title: "",
+        director: "",
+        year: "",
+        rating: "",
+        watched: false
+      });
+
+      fetchMovies();
+    } catch {
+      setError("Network error");
+    }
   };
 
   // ========================
@@ -111,7 +162,6 @@ function App() {
       rating: String(movie.rating),
       watched: movie.watched
     });
-
     setEditingId(movie.id);
   };
 
@@ -119,212 +169,138 @@ function App() {
   // DELETE
   // ========================
   const deleteMovie = async (id: string) => {
-    await fetch(`${API_URL}/${id}`, {
-      method: "DELETE"
-    });
-
+    await fetch(`${API_URL}/${id}`, { method: "DELETE" });
     fetchMovies();
   };
-
-  // ========================
-  // BUTTON STYLE (ACTIVE FILTER)
-  // ========================
-  const buttonStyle = (active: boolean) => ({
-    padding: "6px 12px",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    background: active ? "#e50914" : "#333",
-    color: "white"
-  });
 
   // ========================
   // RETURN UI
   // ========================
   return (
-    // ========================
-    // OUTER CONTAINER (FULL PAGE)
-    // ========================
-    <div
-      className="app" style={{
-        padding: "2rem",
-        background: "#0f0f0f",
-        color: "white",
-        minHeight: "100vh",
-        fontFamily: "Arial",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center"
-      }}
-    >
-      {/* ========================
-          HEADER
-          ======================== */}
-      <h1
-        className="title" style={{
-          color: "#e50914",
-          fontSize: "3rem",
-          marginBottom: "1rem",
-          textAlign: "center"
-        }}
-      >
-        NOTFLIX
-      </h1>
+    <div className="app">
 
-      {/* ========================
-          INNER CONTAINER (CENTERED CONTENT)
-          ======================== */}
-      <div className="container" style={{ width: "100%", maxWidth: "1100px", margin: "0 auto" }}>
-
-        {/* ========================
-            FORM
-            ======================== */}
-        <form
-          className="form" 
-          onSubmit={addMovie}
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "10px",
-            marginBottom: "1rem"
-          }}
-        >
-          <input className="input" style={{ padding: "6px" }} name="title" placeholder="Title" onChange={handleChange} value={form.title} />
-          <input className="input" style={{ padding: "6px" }} name="director" placeholder="Director" onChange={handleChange} value={form.director} />
-          <input className="input" style={{ padding: "6px" }} name="year" placeholder="Year" onChange={handleChange} value={form.year} />
-          <input className="input" style={{ padding: "6px" }} name="rating" placeholder="Rating" onChange={handleChange} value={form.rating} />
-
-          <label className="checkbox">
+      {/* HEADER */}
+      <div className="header">
+        <div className="header-left">
+          <div className="omdb-search-wrapper">
             <input
-              type="checkbox"
-              name="watched"
-              onChange={handleChange}
-              checked={form.watched}
+              className="input header-search"
+              placeholder="Search movies to add..."
+              value={omdbSearch}
+              onChange={(e) => {
+                const value = e.target.value;
+                setOmdbSearch(value);
+                searchOMDb(value);
+              }}
             />
-            <span>Watched</span>
-          </label>
 
-          <button className="button" type="submit">
-            {editingId ? "Update Movie" : "Add Movie"}
-          </button>
-        </form>
-
-        {/* ========================
-            FILTER BUTTONS
-            ======================== */}
-        <div className="filters" style={{ margin: "1rem 0 1.5rem 0", display: "flex", gap: "10px" }}>
-          <button style={buttonStyle(filter === "all")} onClick={() => setFilter("all")}>All</button>
-          <button style={buttonStyle(filter === "watched")} onClick={() => setFilter("watched")}>Watched</button>
-          <button style={buttonStyle(filter === "not_watched")} onClick={() => setFilter("not_watched")}>To Watch</button>
+            {omdbResults.length > 0 && (
+              <div className="omdb-dropdown">
+                {omdbResults.map((movie) => (
+                  <div
+                    key={movie.imdbID}
+                    className="omdb-item"
+                    onClick={() => selectOMDbMovie(movie)}
+                  >
+                    {movie.Title} ({movie.Year})
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* ========================
-            MOVIE GRID
-            ======================== */}
-        <div className="grid"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "1.5rem"
-          }}
-        >
+        <h1 className="title">filmlib</h1>
+
+        <div className="header-right">
+          <button className="button">Login</button>
+        </div>
+      </div>
+
+      <div className="container">
+
+        {/* FORM */}
+        <form className="form" onSubmit={addMovie}>
+          <div className="form-group">
+            <input className="input" name="title" placeholder="Title" onChange={handleChange} value={form.title} />
+            <input className="input" name="director" placeholder="Director" onChange={handleChange} value={form.director} />
+            <input className="input" name="year" placeholder="Year" onChange={handleChange} value={form.year} />
+            <input className="input" name="rating" placeholder="Rating" onChange={handleChange} value={form.rating} />
+          </div>
+
+          <div className="form-actions">
+            <label className="checkbox">
+              <input type="checkbox" name="watched" onChange={handleChange} checked={form.watched} />
+              <span>Watched</span>
+            </label>
+
+            <button className="button" type="submit">
+              {editingId ? "Update Movie" : "Add Movie"}
+            </button>
+          </div>
+        </form>
+
+        {error && <div className="error">{error}</div>}
+
+        {/* FILTER BAR */}
+        <div className="filter-bar">
+          <div className="filter-group">
+            <button className={`filter-btn ${filter === "all" ? "active" : ""}`} onClick={() => setFilter("all")}>All</button>
+            <button className={`filter-btn ${filter === "watched" ? "active" : ""}`} onClick={() => setFilter("watched")}>Watched</button>
+            <button className={`filter-btn ${filter === "not_watched" ? "active" : ""}`} onClick={() => setFilter("not_watched")}>To Watch</button>
+          </div>
+
+          <input
+            className="input search"
+            type="text"
+            placeholder="Search in library..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          <div className="sort-group">
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="title">Title</option>
+              <option value="director">Director</option>
+              <option value="rating">Rating</option>
+              <option value="year">Year</option>
+            </select>
+
+            <select value={order} onChange={(e) => setOrder(e.target.value)}>
+              <option value="asc">Asc</option>
+              <option value="desc">Desc</option>
+            </select>
+          </div>
+        </div>
+
+        {/* MOVIE GRID */}
+        <div className="grid">
           {filteredMovies.map((movie) => (
-            <div
-              key={movie.id}
-              style={{
-                width: "170px",
-                background: "#181818",
-                borderRadius: "10px",
-                overflow: "hidden",
-                position: "relative",
-                transition: "transform 0.25s ease, box-shadow 0.25s ease",
-                cursor: "pointer",
-                boxShadow: "0 4px 10px rgba(0,0,0,0.4)"
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "scale(1.08)";
-                e.currentTarget.style.zIndex = "10";
-                e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.6)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)";
-                e.currentTarget.style.zIndex = "1";
-                e.currentTarget.style.boxShadow = "0 4px 10px rgba(0,0,0,0.4)";
-              }}
-            >
-              {/* POSTER */}
+            <div key={movie.id} className="movie-card">
               <div
+                className="poster"
                 style={{
-                  height: "260px",
-                  backgroundImage: `url(${movie.poster && movie.poster !== "N/A" ? movie.poster : noPoster})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center"
+                  backgroundImage: `url(${movie.poster && movie.poster !== "N/A" ? movie.poster : noPoster})`
                 }}
               />
 
-              {/* INFO */}
-              <div style={{ padding: "0.8rem" }}>
-                <div style={{ fontWeight: "bold" }}>
+              <div className="movie-info">
+                <div className="movie-title">
                   {movie.title} ({movie.year})
                 </div>
-                <div style={{ fontSize: "0.85rem", color: "#aaa" }}>
-                  {movie.director}
-                </div>
+                <div className="movie-director">{movie.director}</div>
               </div>
 
-              {/* ACTIONS */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: "8px",
-                  right: "8px",
-                  display: "flex",
-                  gap: "6px"
-                }}
-              >
-                <button
-                  title="Edit movie"
-                  onClick={() => editMovie(movie)}
-                  style={{
-                    background: "#333",
-                    border: "none",
-                    color: "white",
-                    padding: "4px 6px",
-                    cursor: "pointer",
-                    borderRadius: "4px"
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#87CEEB")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "#333")}
-                >
-                  ✏️
-                </button>
-
-                <button
-                  title="Delete movie"
-                  onClick={() => deleteMovie(movie.id)}
-                  style={{
-                    background: "#333",
-                    border: "none",
-                    color: "white",
-                    padding: "4px 6px",
-                    cursor: "pointer",
-                    borderRadius: "4px"
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#e50914")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "#333")}
-                >
-                  ✖
-                </button>
+              <div className="actions">
+                <button className="edit-btn" onClick={() => editMovie(movie)}>✏️</button>
+                <button className="delete-btn" onClick={() => deleteMovie(movie.id)}>✖</button>
               </div>
             </div>
           ))}
         </div>
 
       </div>
-      {/* END INNER CONTAINER */}
-
     </div>
-    /* END OUTER CONTAINER */
   );
 }
 
