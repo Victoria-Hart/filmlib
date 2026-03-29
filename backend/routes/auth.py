@@ -1,7 +1,7 @@
 # 📁 backend/routes/auth.py
 
 from fastapi import APIRouter, HTTPException, status, Response
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from jose import jwt
 import os
 from schemas.user import UserCreate, UserLogin
@@ -44,8 +44,8 @@ def login(user: UserLogin, response: Response):
     if not verify_password(user.password, db_user["hashed_password"]):
         raise HTTPException(status_code=400, detail="Invalid username or password")
 
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
+    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    
     token_data = {
         "sub": str(db_user["_id"]),
         "username": db_user["username"],
