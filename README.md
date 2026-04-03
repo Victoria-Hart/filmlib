@@ -94,13 +94,13 @@ SECRET_KEY=your_secret_key
 
 ### Movies  
 
-| Method | Endpoint            | Description                    |
-|--------|--------------------|--------------------------------|
-| POST   | /movies            | Create a new movie             |
-| GET    | /movies            | Get all movies (user-specific) |
-| GET    | /movies/{movie_id} | Get a single movie             |
-| PUT    | /movies/{movie_id} | Update a movie                 |
-| DELETE | /movies/{movie_id} | Delete a movie                 |
+| Method | Endpoint            | Description                                  |
+|--------|--------------------|----------------------------------------------|
+| POST   | /movies            | Create a new movie in the collection         |
+| GET    | /movies            | Get all movies (user-specific)               |
+| GET    | /movies/{movie_id} | Get a single movie                           |
+| PUT    | /movies/{movie_id} | Update a movie                               |
+| DELETE | /movies/{movie_id} | Delete a movie                               |
 
 ---
 
@@ -128,63 +128,57 @@ http://127.0.0.1:8000/docs
 ```
 filmlib/
 ├── backend/
-│   ├── app.py
-│   ├── database.py
+│   ├── app.py                # FastAPI entry point (routes, middleware, CORS)
+│   ├── database.py           # MongoDB connection and client setup
 │   │
-│   ├── models/
-│   │   └── __init__.py
-│   │
-│   ├── routes/
+│   ├── models/               # Data models
 │   │   ├── __init__.py
-│   │   ├── auth_routes.py
-│   │   └── movie_routes.py
+│   │   └── movie_model.py   
 │   │
-│   ├── schemas/
+│   ├── routes/               # API endpoints
+│   │   ├── __init__.py
+│   │   ├── auth_routes.py    # User auth (register/login/logout)
+│   │   └── movie_routes.py   # Movie CRUD + OMDb API integration
+│   │
+│   ├── schemas/              # Pydantic schemas (request/response validation)
 │   │   ├── __init__.py
 │   │   ├── movie.py
 │   │   └── user.py
 │   │
-│   ├── utils/
-│   │   ├── auth.py
-│   │   └── security.py
+│   ├── utils/                # Backend helpers
+│   │   ├── auth.py           # JWT dependency
+│   │   └── security.py       # Password hashing and verification
 │   │
-│   ├── tests/
-│   │   ├── conftest.py
-│   │   ├── test_health.py
-│   │   └── test_movies.py
+│   ├── tests/                # Pytest unit tests
+│   │   ├── conftest.py       # Test setup and fixtures
+│   │   ├── test_health.py    # Basic API health check
+│   │   └── test_movies.py    # Movie endpoint tests
 │   │
-│   ├── .env.example
-│   └── requirements.txt
+│   ├── .env.example          # Example environment variables
+│   └── requirements.txt      # Backend dependencies
 │
 ├── frontend/
-│   ├── index.html
-│   ├── package.json
+│   ├── index.html            # Root HTML template (Vite)
+│   ├── package.json          # Project dependencies and scripts
 │   ├── package-lock.json
-│   ├── vite.config.ts
-│   ├── eslint.config.js
-│   │
-│   ├── public/
-│   │   ├── favicon.svg
-│   │   └── icons.svg
+│   ├── vite.config.ts        # Vite build/dev configuration
+│   ├── eslint.config.js      # Linting configuration
 │   │
 │   ├── src/
-│   │   ├── main.tsx
-│   │   ├── App.tsx
-│   │   ├── App.css
-│   │   ├── index.css
+│   │   ├── main.tsx          # React app entry point
+│   │   ├── App.tsx           # Root React component
+│   │   ├── App.css           # Component-level styling
+│   │   ├── index.css         # Global styling (base styles, resets)
 │   │   │
 │   │   ├── assets/
-│   │   │   ├── hero.png
-│   │   │   ├── no-poster.png
-│   │   │   ├── react.svg
-│   │   │   └── vite.svg
+│   │   │   └── no-poster.png # Fallback image for missing posters
 │   │   │
 │   │   └── utils/
-│   │       └── validation.ts
+│   │       └── validation.ts # Form validation logic
 │   │
-│   └── tsconfig*.json
+│   └── tsconfig*.json        # TypeScript configuration (app + node)
 │
-├── docs/
+├── docs/                     # Screenshots for UI preview
 │   ├── library-preview.jpg
 │   └── search-empty-preview.jpg
 │
